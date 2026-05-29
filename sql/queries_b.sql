@@ -67,7 +67,7 @@ WHERE DATE_FORMAT(created_at, '%Y-%m-%d') >= DATE_FORMAT(
 GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
 ORDER BY consult_date;
 
--- [개선된 쿼리] 여기에 작성하세요
+-- [개선된 쿼리]
 -- 핵심: WHERE에서 created_at을 함수(DATE_FORMAT)로 감싸지 않고 "범위 조건"으로 비교(SARGable)
 --       → 아래 인덱스를 탈 수 있게 됨. SELECT/GROUP BY의 날짜 포맷은 출력용이라 그대로 둔다(성능 영향 없음).
 SELECT
@@ -80,7 +80,7 @@ WHERE status = 'ended'
 GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
 ORDER BY consult_date;
 
--- [CREATE INDEX] 여기에 작성하세요
+-- [CREATE INDEX]
 -- 등치 컬럼(status)을 선두, 범위 컬럼(created_at)을 후행에 둔 복합 인덱스.
 -- status='ended'로 먼저 좁힌 뒤 created_at 범위를 인덱스 레인지 스캔한다.
 -- (B-tree는 범위 컬럼 이후로는 추가 탐색을 못 하므로 "등치 먼저, 범위 나중" 순서가 정답.)
@@ -109,7 +109,7 @@ FROM chat_rooms
 WHERE counselor_id = ?
   AND status = 'ended';
 
--- [개선된 단일 쿼리] 여기에 작성하세요
+-- [개선된 단일 쿼리]
 -- N+1(1 + N회 왕복)을 단일 쿼리(왕복 1회)로 합친다.
 -- 온라인 상담사 기준으로, 각자의 완료 상담 수를 스칼라 서브쿼리로 센다.
 --   - 완료 0건 상담사도 포함되어야 하므로 빈 서브쿼리=0이 자연스럽다(LEFT JOIN/COALESCE 불필요).
@@ -129,7 +129,7 @@ WHERE c.is_online = 1
   AND u.status = 'active'
 ORDER BY total_chat_count DESC;
 
--- [CREATE INDEX] 여기에 작성하세요
+-- [CREATE INDEX]
 -- counselor_id(등치) + status(등치) → 서브쿼리 COUNT를 인덱스만으로 처리(커버링, row 조회 0).
 -- FK(counselor_id)가 요구하는 인덱스도 이 복합의 선두 prefix가 겸하므로 별도 단독 인덱스는 불필요.
 CREATE INDEX idx_chat_rooms_counselor_status ON chat_rooms (counselor_id, status);
