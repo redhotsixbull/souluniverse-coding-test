@@ -93,3 +93,13 @@
   4. **최소 변경 원칙: WHERE만 고친다.** SELECT/GROUP BY의 `DATE_FORMAT`은 출력 형식이고 인덱스 사용에 영향 없음(실측 동일) → 그대로 유지.
 - **교훈:** "AI가 제시한 개선"도 변인 분리 실측으로 검증해야 한다 — 재작성이 영웅처럼 보이지만 실측하면 인덱스가 본체. 선택도(필터 영향)와 인덱스 컬럼 순서는 별개 개념.
 - **관련:** PR(`perf/part-b-sql`), `sql/queries_b.sql`(B-2-1), `docs/05-part-b-simulation.md`, REPORT Part B B-2-1.
+
+## D-014. B-2-2 — AI 제안(파생집계)을 검증 후 지원자 판단(스칼라 서브쿼리)으로 변경
+- **AI 제안:** 단일 쿼리화를 위해 **파생 테이블 사전집계 + LEFT JOIN**(V3) 제시.
+- **지원자 결정:** 그대로 받지 않고 대안을 로컬 실측 비교한 뒤 **스칼라 서브쿼리(V1)** 로 변경. (지원자 본인 판단)
+- **측정(로컬, chat_rooms 20만):** V3 파생집계 ~113ms(전체 5,000명 집계+Materialize) / V2 직접조인+GROUP BY ~90ms(temp) / **V1 스칼라 서브쿼리 ~80ms(임시테이블 없음)** / **V1 + `(counselor_id, status)` 커버링 ~14ms**.
+- **왜 V1이 더 나은가:** ① 온라인 1,500명 기준으로만 카운트(V3는 is_online을 모르는 파생테이블이라 전체 5,000명 집계 — 낭비) ② 임시테이블/Materialize 없음 ③ 0건 상담사를 빈 서브쿼리=0으로 자연 처리(LEFT JOIN/COALESCE 불필요).
+- **인덱스도 방식 따라 변경:** 파생집계(V3)는 `GROUP BY counselor_id`용 `(status, counselor_id)`가 맞지만, 서브쿼리(V1)는 `WHERE counselor_id=X AND status='ended'` 등치 점조회라 **`(counselor_id, status)`**(커버링)가 맞다. FK가 요구하는 counselor_id 인덱스도 이 복합의 선두 prefix로 겸함.
+- **전제/주의:** 스칼라 서브쿼리는 counselor_id 인덱스가 있어야 빠름(없으면 1,500×풀스캔 안티패턴) — 여기선 FK가 보장.
+- **교훈:** "N+1→단일 쿼리"는 방향이 같아도 **단일 쿼리의 형태에 따라 성능·인덱스가 갈린다.** AI 제안을 측정으로 검증해 더 나은 지원자 안으로 교체(~113ms→~14ms). 인덱스는 쿼리 접근 패턴을 따라간다.
+- **관련:** PR(`perf/part-b-b22`), `sql/queries_b.sql`(B-2-2), REPORT Part B B-2-2.

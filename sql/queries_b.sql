@@ -110,6 +110,28 @@ WHERE counselor_id = ?
   AND status = 'ended';
 
 -- [개선된 단일 쿼리] 여기에 작성하세요
-
+-- N+1(1 + N회 왕복)을 단일 쿼리(왕복 1회)로 합친다.
+-- 온라인 상담사 기준으로, 각자의 완료 상담 수를 스칼라 서브쿼리로 센다.
+--   - 완료 0건 상담사도 포함되어야 하므로 빈 서브쿼리=0이 자연스럽다(LEFT JOIN/COALESCE 불필요).
+--   - counselor_id가 인덱스돼 있어 각 카운트가 저렴하고, 아래 (counselor_id, status) 복합이면 인덱스만으로 끝난다(커버링).
+SELECT
+  u.id        AS user_id,
+  u.nickname,
+  u.gender,
+  u.birth_year,
+  (SELECT COUNT(*)
+     FROM chat_rooms cr
+    WHERE cr.counselor_id = c.id
+      AND cr.status = 'ended') AS total_chat_count
+FROM counselors c
+  JOIN users u ON u.id = c.user_id
+WHERE c.is_online = 1
+  AND u.status = 'active'
+ORDER BY total_chat_count DESC;
 
 -- [CREATE INDEX] 여기에 작성하세요
+-- counselor_id(등치) + status(등치) → 서브쿼리 COUNT를 인덱스만으로 처리(커버링, row 조회 0).
+-- FK(counselor_id)가 요구하는 인덱스도 이 복합의 선두 prefix가 겸하므로 별도 단독 인덱스는 불필요.
+CREATE INDEX idx_chat_rooms_counselor_status ON chat_rooms (counselor_id, status);
+-- (선택) counselors가 더 커지면 온라인 필터용 인덱스도 고려 — 단 5천 행 규모에선 풀스캔(~1ms)이라 효과 미미.
+-- CREATE INDEX idx_counselors_online ON counselors (is_online);
