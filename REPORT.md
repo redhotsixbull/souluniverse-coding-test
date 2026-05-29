@@ -9,7 +9,7 @@
 | # | 파일 경로 | 수정 내용 | 원인 분석 |
 |---|-----------|-----------|-----------|
 | 1 | `lib/app/me_state.dart` | `removeFavoriteCounselor`의 필터 조건을 `id == counselorId` → `id != counselorId` | 삭제인데 "대상만 남기는" 조건이라, 하트 해제 시 해제 대상은 남고 나머지 즐겨찾기가 모두 사라짐. 삭제 의미에 맞게 부정 조건으로 정정. (재현 테스트: `test/me_state_test.dart`, PR #1 red→green) |
-| 2 | | | |
+| 2 | `lib/pages/chats/consultation_room_page.dart` | `dispose`에 `_messageSubscription?.cancel()` 추가 | 10초 주기 실시간 스트림 구독을 dispose에서 해제하지 않아, 채팅방을 벗어난 뒤에도 타이머가 계속 동작하는 리소스 누수. 이 누수가 채팅방 관련 widget 테스트를 종료 시 'Timer pending'으로 모두 실패시켜, 다른 채팅 버그(A-2/3/4/6)보다 먼저 수정함. (재현 테스트: `test/consultation_room_page_test.dart`, PR #2 red→green) |
 | 3 | | | |
 | 4 | | | |
 | 5 | | | |

@@ -154,6 +154,7 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
 
   @override
   void dispose() {
+    _messageSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();

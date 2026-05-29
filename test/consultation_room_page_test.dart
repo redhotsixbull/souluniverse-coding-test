@@ -1,0 +1,39 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:souluniverse_coding_test/app/me_state.dart';
+import 'package:souluniverse_coding_test/pages/chats/consultation_room_page.dart';
+
+Widget _wrap(Widget child) => ChangeNotifierProvider<MeState>(
+      create: (_) => MeState(),
+      child: MaterialApp(home: child),
+    );
+
+void main() {
+  group('ConsultationRoomPage 생명주기', () {
+    // 시나리오: 채팅방에 들어가면 10초 주기 실시간 스트림이 구독된다.
+    // 채팅방을 벗어나면(페이지 dispose) 그 구독/타이머가 정리되어야 한다.
+    // 정리되지 않으면 테스트 종료 시 "Timer is still pending"으로 실패한다.
+    testWidgets('채팅방을 벗어나면 실시간 스트림 타이머가 정리된다', (tester) async {
+      await tester.pumpWidget(
+        _wrap(const ConsultationRoomPage(
+          roomId: 'demo-room',
+          counselorName: '테스트 상담사',
+        )),
+      );
+
+      // 초기 메시지 로드(600ms 지연) 완료 + 실시간 스트림 1회 동작.
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump(const Duration(seconds: 10));
+
+      // 채팅방을 벗어난다 → 페이지가 dispose 되어야 한다.
+      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+
+      // 정리됐다면 더 이상 타이머가 동작하지 않는다.
+      await tester.pump(const Duration(seconds: 30));
+
+      // 여기까지 왔을 때 pending 타이머가 남아 있으면 프레임워크가 실패시킨다.
+      expect(find.byType(ConsultationRoomPage), findsNothing);
+    });
+  });
+}
