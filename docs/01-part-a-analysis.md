@@ -89,11 +89,31 @@ Future<void> _loadInitialMessages() async {
 - A-2를 고치면 우연히 가려질 수 있으나 **독립 버그로 명시 수정** 권장.
 - `_isLoadingMore` 토글도 `LinearProgressIndicator` 표시와 연동되므로 setState 대상.
 
+### 🔴 A-7. 닉네임 변경이 홈 화면에 반영 안 됨 ⚠️ *(초기 정적 분석에서 누락 → 사용자가 웹 수동 확인으로 발견)*
+**파일:** `lib/pages/home/home_page.dart` (`_HomeBody`)
+```dart
+body: meState.user == null ? ... : const _HomeBody(),   // const
+...
+class _HomeBody extends StatelessWidget {
+  Widget build(BuildContext context) {
+    final meState = context.read<MeState>();   // read (구독 안 함)
+    ...
+    Text('안녕하세요, ${meState.user!.nickname}님!')
+```
+- `updateNickname` → `notifyListeners()`는 정상 호출되고 `HomePage`(watch)는 리빌드되지만, **인사말을 그리는 `_HomeBody`가 `const`라 동일 인스턴스로 취급돼 자식이 리빌드되지 않음**. 게다가 `context.read`라 MeState 변경을 **구독하지도 않음**.
+- 결과: 닉네임을 바꿔도 홈 인사말/아바타가 갱신되지 않아 "변경이 안 되는 것처럼" 보임.
+- 대조: 바로 아래 `_CounselorCard`는 `context.watch` 사용 → `_HomeBody`만 `read`라 일관성 깨짐.
+- **수정 방향:** `_HomeBody`의 `context.read` → `context.watch`로 변경(구독 → const여도 의존성 변경 시 리빌드).
+- **발견 경위:** 정적 코드 분석(이 문서 초기 작성)에서는 "HomePage가 watch라 괜찮다"고 잘못 판단해 놓쳤음. 실제 웹 실행(닉네임 변경 시나리오) 수동 확인에서 드러남 → 정적 분석과 탐색적 수동 테스트는 상호 보완 필요(교훈).
+
 ## 추가 관찰 (버그는 아니나 개선 후보 / REPORT 기타 의견용)
 
 - `_isSending`이 항상 false → 전송 중 입력 비활성화(`isDisabled`)가 실제로 동작 안 함. A-3 수정 시 함께 `_isSending` 토글하면 중복 전송 방지 가능.
 - `ConsultationRoomPage`가 자체 `_controller`를 두고, `ChatInputBar`도 자체 컨트롤러 보유 → `onSend`에서 `_controller.text = text` 후 재읽기하는 우회 구조. A-3 정리 시 본인 컨트롤러 제거하고 `onSend(text)`만 쓰는 방향이 단순.
 - `_onScroll`은 `pixels == 0`에서만 추가 로드 → 정확히 0이어야 트리거. 큰 결함은 아님.
+- `_loadMoreMessages`(위로 스크롤 시 과거 메시지 로드): `insertAll`은 `setState`로 하지만 `_isLoadingMore` 토글은 `setState` 밖이라 페이지네이션 로딩바가 안정적으로 표시되지 않음(동작 자체는 됨). *(수동 코드 재검토에서 확인)*
+
+> 위 "추가 관찰" 항목들은 심어둔 버그라기보다 다듬기 영역으로 보아 정식 수정 대상에서 제외하고, REPORT 기타 의견으로만 정리한다. (A-7만 정식 버그로 처리)
 
 ## 검증 방법
 
