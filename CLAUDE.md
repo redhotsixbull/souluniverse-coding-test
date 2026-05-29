@@ -34,6 +34,9 @@
 - 테스트는 `flutter test`(Chrome 불필요)로 검증. 상태 로직은 unit, UI 동작은 widget test.
 - **PR은 생성만 하고 머지하지 않는다.** 머지는 사용자가 직접 리뷰 후 수행.
 - PR 본문에 버그/근본원인/테스트 red→green/검증 방법을 기재.
+- **수정(green) 후에는 실행 중인 web 앱에 hot reload를 걸어** 사용자가 화면에서 바로 확인할 수 있게 한다.
+  - 명령 파이프(FIFO) `/tmp/sou_stdin`로 stdin을 연결해 `flutter run -d chrome --web-port=5353` 실행 → reload는 `echo r > /tmp/sou_stdin`, 재시작은 `echo R > /tmp/sou_stdin`.
+  - 앱이 꺼져 있으면 기존 프로세스 정리 후 FIFO로 재기동(새 Chrome 창).
 
 ## REPORT.md 작성 원칙
 

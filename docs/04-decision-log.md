@@ -54,6 +54,11 @@
 - **근거:** 스킬 트리거 타이밍을 사용자가 항상 파악·통제하도록. 자동 트리거에만 의존하지 않고 사용자 가시성 확보.
 - **관련:** `CLAUDE.md` 작업 흐름 > 스킬 실행 시점 안내.
 
+## D-010. 수정(green) 후 web 앱 hot reload로 즉시 확인
+- **결정:** 사용자 요청 — 매 수정 후 실행 중인 web 앱에 hot reload를 걸어 화면에서 바로 확인시킨다. 명령 파이프(FIFO `/tmp/sou_stdin`)로 stdin 연결해 `flutter run -d chrome --web-port=5353` 실행, `echo r/R > /tmp/sou_stdin`로 reload/restart.
+- **근거:** 테스트(자동) 외에 실제 화면 확인을 빠르게 반복하기 위함. Chrome 창이 닫히면 재기동 필요.
+- **관련:** `CLAUDE.md` 테스트 & PR 워크플로우, `flutter-bugfix` 스킬.
+
 ## D-009. 채팅방 버그 수정 순서 — A-5(타이머 정리)를 A-2/3/4/6보다 먼저
 - **결정:** `docs/01`의 후보 순서와 달리, `ConsultationRoomPage`의 **A-5(dispose 시 스트림 구독 미해제)** 를 채팅방 다른 버그들보다 먼저 수정.
 - **근거:** A-5(누수)가 남아 있으면 `ConsultationRoomPage`를 mount하는 모든 widget 테스트가 종료 시 "Timer is still pending"으로 실패해, A-2/A-3/A-4/A-6의 **테스트 가능성(red→green) 자체가 막힌다.** 테스트를 막는 생명주기 버그를 먼저 제거해 후속 버그를 깨끗하게 검증.
