@@ -92,12 +92,38 @@ CREATE INDEX idx_chat_rooms_status_created ON chat_rooms (status, created_at);
 
 ### B-2-2. 상담사 목록 N+1 쿼리
 
-**문제점:**
+**문제점**
+- Step1(온라인 상담사 N명) 조회 후, **각 상담사마다 `COUNT` 쿼리를 N번 반복** → `1 + N`회 왕복(실측 N=**1,500**). 앱↔DB 왕복이 곱으로 늘어나는 게 핵심 비용(네트워크 RTT × 1,500). → **단일 쿼리(왕복 1회)** 로 합쳐야 함.
+- 요구 결과셋(`user_id, nickname, gender, birth_year, total_chat_count`)과 원래 Step1 컬럼(`c.id, tier, fee…`)이 불일치 → users 기준으로 재구성 필요.
 
-**개선된 쿼리:**
+**개선된 쿼리** (`sql/queries_b.sql` 참조)
 
 ```sql
--- 여기에 작성해주세요
+SELECT u.id AS user_id, u.nickname, u.gender, u.birth_year,
+  (SELECT COUNT(*) FROM chat_rooms cr
+    WHERE cr.counselor_id = c.id AND cr.status = 'ended') AS total_chat_count
+FROM counselors c
+  JOIN users u ON u.id = c.user_id
+WHERE c.is_online = 1 AND u.status = 'active'
+ORDER BY total_chat_count DESC;
+
+CREATE INDEX idx_chat_rooms_counselor_status ON chat_rooms (counselor_id, status);
 ```
 
-**개선 이유:**
+**개선 이유 — 의사결정 과정 (AI 제안 → 검증 → 지원자 판단으로 변경, 측정으로 입증)**
+
+처음 AI가 제안한 단일 쿼리는 **파생 테이블 사전집계 + LEFT JOIN**(아래 V3)이었다. 이를 그대로 받지 않고 **로컬 실측으로 대안을 비교**한 뒤, **지원자 판단으로 스칼라 서브쿼리(V1)로 변경**했다. 측정 결과 V1이 더 나았다.
+
+| 방식 | 임시테이블 | 처리 특성 | 실측(로컬, 20만행) |
+|---|---|---|---|
+| 원본 N+1 | – | `1 + 1,500`회 왕복 (네트워크 RTT가 본 비용) | 실행만 ~0.2s + RTT×1,500 |
+| **AI 제안: V3 파생집계 + LEFT JOIN** | Materialize | **온라인 1,500명이 아니라 전체 5,000명**의 ended 10만 행을 집계(낭비) | ~113ms |
+| V2 chat_rooms 직접 LEFT JOIN + GROUP BY | temp | 온라인 상담사 ended 30,750행 조인 후 그룹 | ~90ms |
+| **지원자 결정: V1 스칼라 서브쿼리** | **없음** | 온라인 1,500명만 `counselor_id` 인덱스 점조회 | ~80ms |
+| **V1 + `(counselor_id, status)` 커버링** | **없음** | COUNT를 인덱스만으로(row 조회 0) | **~14ms** |
+
+- **공통 본질**: N+1 → 단일 쿼리(왕복 1,500→1)는 어느 방식이든 달성. 진짜 비용은 네트워크 왕복이므로 이것만으로도 큰 개선.
+- **그런데 "어떤 단일 쿼리냐"가 갈렸다.** AI의 V3는 `is_online`을 모르는 파생 테이블이라 **전체 5,000명을 집계**(필요 없는 3,500명 포함)하고 Materialize/임시테이블을 쓴다. **V1(지원자 안)** 은 온라인 1,500명을 기준으로 각자 카운트만 하므로 불필요한 집계가 없고 임시테이블도 없다. 게다가 **0건 상담사도 빈 서브쿼리=0으로 자연 처리**(LEFT JOIN/COALESCE 불필요).
+- **인덱스도 방식 따라 달라진다.** V3(파생집계)는 `GROUP BY counselor_id` 최적화용 `(status, counselor_id)`가 필요하지만, **V1(서브쿼리)는 `WHERE counselor_id=X AND status='ended'` 등치 점조회라 `(counselor_id, status)`** 가 맞다(커버링 카운트). FK(`counselor_id`)가 요구하는 인덱스도 이 복합의 선두 prefix로 겸하므로 별도 단독 인덱스가 필요 없다. 이 인덱스로 ~80ms → **~14ms**.
+- **전제 주의**: 스칼라 서브쿼리는 `counselor_id` 인덱스가 있을 때만 빠르다(없으면 1,500×풀스캔의 안티패턴). 여기선 FK가 인덱스를 보장한다.
+- **결론**: N+1 제거(단일 쿼리화)는 방향이 같지만, **측정 비교 결과 지원자가 택한 스칼라 서브쿼리(+`(counselor_id, status)`)가 AI 초안(파생집계)보다 빠르고 단순**했다(~113ms → ~14ms).
