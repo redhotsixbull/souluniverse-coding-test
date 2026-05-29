@@ -101,16 +101,35 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     _controller.clear();
+
+    // 보낸 메시지를 즉시(낙관적으로) 화면에 반영한다.
+    final myId = context.read<MeState>().user?.id ?? 'user-demo';
+    setState(() {
+      _messages.add(ChatMessage(
+        id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+        roomId: widget.roomId,
+        senderId: myId,
+        content: text,
+        sentAt: DateTime.now(),
+        isRead: false,
+      ));
+    });
+    _scrollToBottom();
+
     await ChatsRepository.instance.sendMessage(widget.roomId, text);
   }
 
   void _scrollToBottom() {
-    if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    // 리스트가 갱신된 뒤(레이아웃 완료 후)의 실제 최하단으로 스크롤한다.
+    // setState 직후 동기 호출하면 갱신 전 옛 스크롤 범위로 이동해 새 메시지가 가려진다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
