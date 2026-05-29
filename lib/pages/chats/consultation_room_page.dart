@@ -75,7 +75,8 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
         isRead: false,
       ),
     ).listen((msg) {
-      _messages.add(msg);
+      if (!mounted) return;
+      setState(() => _messages.add(msg));
       _scrollToBottom();
     });
   }
