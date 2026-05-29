@@ -3,12 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:souluniverse_coding_test/app/me_state.dart';
 import 'package:souluniverse_coding_test/pages/home/home_page.dart';
+import 'package:souluniverse_coding_test/repository/mock_user_repository.dart';
 
 void main() {
   group('HomePage 닉네임 반영', () {
     // 시나리오: 닉네임을 변경하면 홈 화면의 인사말이 즉시 새 닉네임으로 갱신되어야 한다.
     testWidgets('닉네임을 변경하면 홈 인사말이 갱신된다', (tester) async {
-      final me = MeState();
+      final me = MeState(userRepository: MockUserRepository());
       await tester.pumpWidget(
         ChangeNotifierProvider<MeState>.value(
           value: me,

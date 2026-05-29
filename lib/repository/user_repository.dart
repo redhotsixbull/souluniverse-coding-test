@@ -1,40 +1,25 @@
 import '../models/user.dart';
 
-// 테스트용 Mock — 실제 API 호출 없음
-class _MeResult {
+/// 현재 로그인 사용자의 프로필 조회 결과(도메인 모델).
+class MeProfile {
   final User user;
   final int cookie;
   final List<String> favoriteCounselorIds;
 
-  const _MeResult({
+  const MeProfile({
     required this.user,
     required this.cookie,
     required this.favoriteCounselorIds,
   });
 }
 
-class UserRepository {
-  UserRepository._();
-  static final UserRepository instance = UserRepository._();
-
-  Future<_MeResult> fetchMe() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-    return _MeResult(
-      user: const User(id: 'user-demo', nickname: '테스트 사용자'),
-      cookie: 350,
-      favoriteCounselorIds: const ['counselor-1'],
-    );
-  }
-
-  Future<void> addFavorite(String counselorId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-  }
-
-  Future<void> removeFavorite(String counselorId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-  }
-
-  Future<void> updateNickname(String nickname) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-  }
+/// 사용자 프로필·즐겨찾기·닉네임을 다루는 저장소 "계약".
+///
+/// 인터페이스만 보고도 이 저장소가 무엇을 할 수 있는지 알 수 있도록 정의하며,
+/// 구현(Mock/API 등)을 자유롭게 갈아끼우거나 테스트에서 fake를 주입할 수 있게 한다.
+abstract interface class UserRepository {
+  Future<MeProfile> fetchMe();
+  Future<void> addFavorite(String counselorId);
+  Future<void> removeFavorite(String counselorId);
+  Future<void> updateNickname(String nickname);
 }

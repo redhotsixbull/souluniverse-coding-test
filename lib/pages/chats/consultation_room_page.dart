@@ -34,9 +34,12 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
   StreamSubscription<ChatMessage>? _messageSubscription;
   int _page = 0;
 
+  late final ChatsRepository _chatsRepository;
+
   @override
   void initState() {
     super.initState();
+    _chatsRepository = context.read<ChatsRepository>();
     _loadInitialMessages();
     _connectFirestore();
     _scrollController.addListener(_onScroll);
@@ -46,7 +49,7 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
     setState(() => _isLoadingMore = true);
 
     final msgs =
-        await ChatsRepository.instance.fetchMessages(widget.roomId, page: 0);
+        await _chatsRepository.fetchMessages(widget.roomId, page: 0);
 
     if (!mounted) return;
     setState(() {
@@ -91,7 +94,7 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
     _isLoadingMore = true;
     _page++;
     final older =
-        await ChatsRepository.instance.fetchMessages(widget.roomId, page: _page);
+        await _chatsRepository.fetchMessages(widget.roomId, page: _page);
     setState(() {
       _messages.insertAll(0, older);
     });
@@ -117,7 +120,7 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
     });
     _scrollToBottom();
 
-    await ChatsRepository.instance.sendMessage(widget.roomId, text);
+    await _chatsRepository.sendMessage(widget.roomId, text);
   }
 
   void _scrollToBottom() {

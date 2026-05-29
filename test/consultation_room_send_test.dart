@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:souluniverse_coding_test/app/me_state.dart';
 import 'package:souluniverse_coding_test/pages/chats/consultation_room_page.dart';
-
-Widget _wrap(Widget child) => ChangeNotifierProvider<MeState>(
-      create: (_) => MeState(),
-      child: MaterialApp(home: child),
-    );
+import 'support/test_providers.dart';
 
 void main() {
   group('ConsultationRoomPage 메시지 전송', () {
@@ -15,7 +9,7 @@ void main() {
     // 채팅 목록에 방금 보낸 내 메시지가 표시되어야 한다.
     testWidgets('메시지를 입력하고 전송하면 채팅창에 내 메시지가 표시된다', (tester) async {
       await tester.pumpWidget(
-        _wrap(const ConsultationRoomPage(
+        wrapWithProviders(const ConsultationRoomPage(
           roomId: 'demo-room',
           counselorName: '테스트 상담사',
         )),
