@@ -78,3 +78,18 @@
 - **사고 흐름:** ②는 Next.js App Router의 "server 컴포넌트 기본 + client는 인터랙티브 leaf만" 모델에서 출발 → Flutter엔 SSR/서버컴포넌트가 없으므로 그대로 옮기지 않고 **"StatelessWidget 기본 골조 + 가변 상태 leaf만 stateful"** 로 번역(`Stateless [ Stateful, … ]`). 상세는 리팩토링 PR 본문.
 - **검증:** 전체 7개 테스트 통과, `flutter analyze` 무이슈. 부산물로 repository 인터페이스 덕에 `me_state_test`의 1500ms 대기 제거.
 - **관련:** 리팩토링 PR #1(fork, `refactor/architecture`), REPORT 기타 의견.
+
+## D-013. B-2-1 — "재작성은 전제조건, 인덱스가 본체" (사용자 검증으로 확정)
+- **맥락:** 사용자가 *검증자* 역할로 "AI 제안(쿼리 재작성)이 실질적 큰 효과가 있는지, 인덱스를 빼면 어떤지"를 검증하자고 함. 로컬 MySQL에 `IGNORE INDEX`/`FORCE INDEX`로 변인을 분리해 실측.
+- **검증 결과(실측, chat_rooms 20만):**
+  - 원본(`DATE_FORMAT`, 인덱스 X): 풀스캔 200,000 → ~87ms.
+  - **재작성만(인덱스 무시): 여전히 풀스캔 200,000 → ~65ms** ⇒ 재작성 단독 효과는 마진.
+  - 재작성 + `created_at` 단독 인덱스: 16,987행 → ~19ms.
+  - 재작성 + `(status, created_at)` 복합: 8,493행 → ~9ms.
+- **결정/근거:**
+  1. **재작성의 본질은 성능이 아니라 "인덱스를 켜는 전제조건(SARGable화)".** `DATE_FORMAT(created_at)`로 감싸면 인덱스를 아예 못 타므로, 재작성 없이는 인덱스도 무의미 → 재작성+인덱스는 한 쌍.
+  2. **필터 영향도는 `created_at`이 지배적**(status 'ended'≈50% vs created_at 30일≈8.5% 선택도). 전수 스캔 제거의 본체는 created_at.
+  3. **그러나 인덱스 컬럼 순서는 `(status, created_at)`** — 선택도와 별개로, B-tree는 범위 컬럼 이후 추가 탐색 불가 → **등치(status) 선두, 범위(created_at) 후행** 규칙. (덕분에 16,987→8,493 추가 절감)
+  4. **최소 변경 원칙: WHERE만 고친다.** SELECT/GROUP BY의 `DATE_FORMAT`은 출력 형식이고 인덱스 사용에 영향 없음(실측 동일) → 그대로 유지.
+- **교훈:** "AI가 제시한 개선"도 변인 분리 실측으로 검증해야 한다 — 재작성이 영웅처럼 보이지만 실측하면 인덱스가 본체. 선택도(필터 영향)와 인덱스 컬럼 순서는 별개 개념.
+- **관련:** PR(`perf/part-b-sql`), `sql/queries_b.sql`(B-2-1), `docs/05-part-b-simulation.md`, REPORT Part B B-2-1.
