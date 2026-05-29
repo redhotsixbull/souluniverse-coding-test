@@ -2,6 +2,26 @@
 
 ---
 
+## AI 도구 사용 고지
+
+본 과제는 **Claude Code(Anthropic)** 를 **광범위하게** 활용해 진행했습니다. 투명하게 밝히면 **코드·테스트·문서 작성의 대부분을 AI가 수행**했고, 저는 **방향 설정·의사결정·리뷰·검증**을 담당하는 방식으로 협업했습니다.
+
+**AI(Claude Code)가 수행한 것**
+- Part A: 정적 분석 기반 버그 후보 도출, 버그별 재현 테스트(red)→수정(green) 작성, `flutter test`/`flutter analyze` 검증, 커밋·PR 생성
+- 리팩토링(PR #8): 상태관리·repository 구조 개선 구현
+- 문서: `docs/`(분석·계획·의사결정 로그), 본 `REPORT.md`
+- 환경/워크플로우: 테스트 우선(red→green)·버그당 PR, web(Chrome) 실행·hot reload, git/gh 조작
+
+**제가 주도한 것**
+- 전체 워크플로우·규칙 설계(테스트 우선, 버그당 PR, 직접 리뷰/머지, hot reload 확인)
+- 모든 PR 리뷰·머지 판단, 자동 코드리뷰(Codex) 대응 방향 결정
+- 버그 1건(A-7 닉네임 미반영)을 **웹 수동 확인 중 직접 발견**(정적 분석이 놓친 부분)
+- 구조적 개선 포인트(채팅 상태관리·repository 인터페이스·stateless/stateful 구성) 제기 → PR #8로 구현
+
+의사결정 근거·과정은 `docs/04-decision-log.md`에 시간순으로 기록돼 있습니다.
+
+---
+
 ## Part A — Flutter 버그 수정
 
 ### 수정한 버그 목록
