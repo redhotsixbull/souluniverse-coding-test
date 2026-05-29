@@ -73,8 +73,8 @@
 - **관련:** `docs/01`(A-7 추가), 향후 PR(`fix/a7-...`).
 
 ## D-012. 구조 개선은 단일 refactor 브랜치/PR로 (버그 fix와 분리)
-- **결정:** REPORT 기타 의견의 3가지 구조 개선(① 채팅 상태→`ChatRoomController(ChangeNotifier)`, ② stateless 셸 + stateful 아일랜드 재구성, ③ repository 추상 인터페이스 + DI)을 단일 브랜치 `refactor/architecture`에서 작업하고 **PR #8** 하나로 묶음.
+- **결정:** REPORT 기타 의견의 3가지 구조 개선(① 채팅 상태→`ChatRoomController(ChangeNotifier)`, ② stateless 셸 + stateful 아일랜드 재구성, ③ repository 추상 인터페이스 + DI)을 단일 브랜치 `refactor/architecture`에서 작업하고 **리팩토링 PR(fork #1)** 하나로 묶음.
 - **근거:** 포인트 ①·②는 같은 파일을 같은 방식으로 바꾸는 사실상 한 리팩토링이라 점별 PR로 나누면 충돌. 하나의 PR로 응집해 의사결정 흐름을 한 곳에 서술하는 게 가독성·맥락 면에서 유리. 버그 fix(테스트 우선 red→green)와 달리 **동작 보존 리팩토링**이므로 `flutter-bugfix` 스킬 미사용, "기존 테스트 green 유지"가 합격선.
-- **사고 흐름:** ②는 Next.js App Router의 "server 컴포넌트 기본 + client는 인터랙티브 leaf만" 모델에서 출발 → Flutter엔 SSR/서버컴포넌트가 없으므로 그대로 옮기지 않고 **"StatelessWidget 기본 골조 + 가변 상태 leaf만 stateful"** 로 번역(`Stateless [ Stateful, … ]`). 상세는 PR #8 본문.
+- **사고 흐름:** ②는 Next.js App Router의 "server 컴포넌트 기본 + client는 인터랙티브 leaf만" 모델에서 출발 → Flutter엔 SSR/서버컴포넌트가 없으므로 그대로 옮기지 않고 **"StatelessWidget 기본 골조 + 가변 상태 leaf만 stateful"** 로 번역(`Stateless [ Stateful, … ]`). 상세는 리팩토링 PR 본문.
 - **검증:** 전체 7개 테스트 통과, `flutter analyze` 무이슈. 부산물로 repository 인터페이스 덕에 `me_state_test`의 1500ms 대기 제거.
-- **관련:** PR #8(`refactor/architecture`), REPORT 기타 의견.
+- **관련:** 리팩토링 PR #1(fork, `refactor/architecture`), REPORT 기타 의견.
