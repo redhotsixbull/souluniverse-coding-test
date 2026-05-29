@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../app/me_state.dart';
@@ -6,11 +5,14 @@ import '../../models/chat_message.dart';
 import '../../repository/chats_repository.dart';
 import '../../widgets/chat_input_bar.dart';
 import '../../widgets/message_bubble.dart';
+import 'chat_room_controller.dart';
 
 /// 1:1 상담 채팅방 화면.
-/// Firestore 스트림으로 실시간 메시지를 수신하고,
-/// REST API로 이전 메시지를 페이징 로드합니다.
-class ConsultationRoomPage extends StatefulWidget {
+///
+/// 상태/로직은 [ChatRoomController]가 전담하고, 화면은 stateless 셸이
+/// 작은 stateful 컴포넌트(`_MessageList`, `ChatInputBar`)를 조립하는 형태다.
+/// 컨트롤러 수명은 [ChangeNotifierProvider]가 관리(제거 시 자동 dispose → 구독 정리)한다.
+class ConsultationRoomPage extends StatelessWidget {
   final String roomId;
   final String counselorName;
 
@@ -21,128 +23,33 @@ class ConsultationRoomPage extends StatefulWidget {
   });
 
   @override
-  State<ConsultationRoomPage> createState() => _ConsultationRoomPageState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider<ChatRoomController>(
+      create: (ctx) => ChatRoomController(
+        repository: ctx.read<ChatsRepository>(),
+        roomId: roomId,
+      )
+        ..loadInitial()
+        ..connectRealtime(),
+      child: _ChatRoomScaffold(counselorName: counselorName),
+    );
+  }
 }
 
-class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-
-  List<ChatMessage> _messages = [];
-  bool _isLoadingMore = false;
-  bool _isSending = false;
-  StreamSubscription<ChatMessage>? _messageSubscription;
-  int _page = 0;
-
-  late final ChatsRepository _chatsRepository;
-
-  @override
-  void initState() {
-    super.initState();
-    _chatsRepository = context.read<ChatsRepository>();
-    _loadInitialMessages();
-    _connectFirestore();
-    _scrollController.addListener(_onScroll);
-  }
-
-  Future<void> _loadInitialMessages() async {
-    setState(() => _isLoadingMore = true);
-
-    final msgs =
-        await _chatsRepository.fetchMessages(widget.roomId, page: 0);
-
-    if (!mounted) return;
-    setState(() {
-      _messages = msgs;
-      _isLoadingMore = false;
-    });
-    _scrollToBottom();
-  }
-
-  // 테스트용: 실제 Firestore 대신 10초마다 상담사 메시지 도착을 시뮬레이션
-  static const _mockRealtimeContents = [
-    '그렇군요, 조금 더 이야기해 주실 수 있을까요?',
-    '많이 힘드셨겠어요.',
-    '충분히 이해가 돼요. 계속 말씀해 주세요.',
-  ];
-
-  void _connectFirestore() {
-    _messageSubscription = Stream.periodic(
-      const Duration(seconds: 10),
-      (i) => ChatMessage(
-        id: 'realtime-$i',
-        roomId: widget.roomId,
-        senderId: 'counselor-1',
-        content: _mockRealtimeContents[i % _mockRealtimeContents.length],
-        sentAt: DateTime.now(),
-        isRead: false,
-      ),
-    ).listen((msg) {
-      if (!mounted) return;
-      setState(() => _messages.add(msg));
-      _scrollToBottom();
-    });
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels == 0 && !_isLoadingMore) {
-      _loadMoreMessages();
-    }
-  }
-
-  Future<void> _loadMoreMessages() async {
-    _isLoadingMore = true;
-    _page++;
-    final older =
-        await _chatsRepository.fetchMessages(widget.roomId, page: _page);
-    setState(() {
-      _messages.insertAll(0, older);
-    });
-    _isLoadingMore = false;
-  }
-
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    _controller.clear();
-
-    // 보낸 메시지를 즉시(낙관적으로) 화면에 반영한다.
-    final myId = context.read<MeState>().user?.id ?? 'user-demo';
-    setState(() {
-      _messages.add(ChatMessage(
-        id: 'local-${DateTime.now().microsecondsSinceEpoch}',
-        roomId: widget.roomId,
-        senderId: myId,
-        content: text,
-        sentAt: DateTime.now(),
-        isRead: false,
-      ));
-    });
-    _scrollToBottom();
-
-    await _chatsRepository.sendMessage(widget.roomId, text);
-  }
-
-  void _scrollToBottom() {
-    // 리스트가 갱신된 뒤(레이아웃 완료 후)의 실제 최하단으로 스크롤한다.
-    // setState 직후 동기 호출하면 갱신 전 옛 스크롤 범위로 이동해 새 메시지가 가려진다.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    });
-  }
+/// stateless 셸: 앱바·로딩표시·메시지 목록·입력바를 조립한다.
+class _ChatRoomScaffold extends StatelessWidget {
+  final String counselorName;
+  const _ChatRoomScaffold({required this.counselorName});
 
   @override
   Widget build(BuildContext context) {
     final meState = context.watch<MeState>();
+    final controller = context.watch<ChatRoomController>();
     final myId = meState.user?.id;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.counselorName),
+        title: Text(counselorName),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -157,31 +64,78 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
       ),
       body: Column(
         children: [
-          if (_isLoadingMore) const LinearProgressIndicator(),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: _messages.length,
-              itemBuilder: (context, index) =>
-                  MessageBubble(message: _messages[index], currentUserId: myId),
-            ),
-          ),
+          if (controller.isLoading) const LinearProgressIndicator(),
+          Expanded(child: _MessageList(currentUserId: myId)),
           ChatInputBar(
-            onSend: (text) async {
-              _controller.text = text;
-              await _sendMessage();
-            },
-            isDisabled: _isSending,
+            onSend: (text) => context
+                .read<ChatRoomController>()
+                .send(text, senderId: myId ?? 'user-demo'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// stateful 아일랜드: 스크롤 컨트롤러를 보유하고,
+/// 새 메시지가 맨 아래에 추가되면 최하단으로 스크롤하며, 상단 도달 시 과거 메시지를 로드한다.
+class _MessageList extends StatefulWidget {
+  final String? currentUserId;
+  const _MessageList({required this.currentUserId});
+
+  @override
+  State<_MessageList> createState() => _MessageListState();
+}
+
+class _MessageListState extends State<_MessageList> {
+  final ScrollController _scrollController = ScrollController();
+  String? _lastMessageId;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels == 0) {
+      context.read<ChatRoomController>().loadOlder();
+    }
+  }
+
+  /// 마지막 메시지가 바뀐 경우(=맨 아래 새 메시지 추가)에만 최하단으로 스크롤한다.
+  /// 과거 메시지 로드(상단 prepend)는 마지막 메시지가 그대로라 스크롤하지 않는다.
+  void _maybeStickToBottom(List<ChatMessage> messages) {
+    if (messages.isEmpty) return;
+    final lastId = messages.last.id;
+    if (lastId == _lastMessageId) return;
+    _lastMessageId = lastId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messages = context.watch<ChatRoomController>().messages;
+    _maybeStickToBottom(messages);
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: messages.length,
+      itemBuilder: (context, index) => MessageBubble(
+        message: messages[index],
+        currentUserId: widget.currentUserId,
       ),
     );
   }
 
   @override
   void dispose() {
-    _messageSubscription?.cancel();
-    _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
