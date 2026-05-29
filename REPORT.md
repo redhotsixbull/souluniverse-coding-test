@@ -18,7 +18,13 @@
 
 ### 기타 의견
 
-(선택) 수정하면서 느낀 점, 추가로 개선하고 싶었던 부분 등 자유롭게 작성해주세요.
+버그를 고치며 본 **구조적 아쉬움 3가지**입니다. 세 가지 모두 *"구조로 실수를 막고 의도를 드러내자"* 라는 한 가지 테마로 묶입니다. 단순 지적에 그치지 않고 **실제 개선을 리팩토링 PR로 구현**해 두었습니다 → **[PR #8](https://github.com/redhotsixbull/souluniverse-coding-test/pull/8)** (동작 보존, 기존 테스트 그대로 통과). 의사결정 흐름은 PR #8 본문과 `docs/04-decision-log.md`(D-012)에 정리.
+
+1. **채팅 상태가 명령형 `setState`에 의존.** 심어진 버그 A-2/A-3/A-6(및 A-7)이 모두 "상태 변경 후 갱신/구독 누락"이라는 한 뿌리였다. `ConsultationRoomPage`가 가변 `_messages`를 직접 들고 수동 갱신하는 구조라 한 곳만 빠뜨려도 버그가 된다. → 채팅 상태를 `ChangeNotifier`(`ChatRoomController`)로 분리해 "변경 = 자동 알림"으로 만들면 이 부류 버그가 구조적으로 불가능해진다.
+
+2. **위젯 구성: stateless 골조 + stateful 아일랜드.** 바깥은 stateless 셸로 두고 상태는 가장 좁은 leaf에 가두는 형태(`Stateless [ Stateful, … ]`)가 이상적이다. `ChatInputBar`는 좋은 예였지만 `ConsultationRoomPage`는 리스트·스크롤·구독·입력을 혼자 떠안은 거대 StatefulWidget이었다. → 페이지를 셸로 두고 `_MessageList` 등 작은 컴포넌트로 분해.
+
+3. **Repository에 인터페이스(계약)가 없음.** 구체 싱글턴에 함수만 나열돼 있어, 인터페이스만으로 기능을 추측할 수 없고 구현 교체·테스트 fake 주입이 불가능했다(실제로 테스트가 mock의 지연을 그대로 감수해야 했다). → 추상 인터페이스 + 구현 주입(DI)으로 계약을 드러내고 결합을 끊는다.
 
 ---
 
