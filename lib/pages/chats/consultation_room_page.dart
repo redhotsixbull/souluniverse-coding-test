@@ -135,6 +135,7 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
   @override
   Widget build(BuildContext context) {
     final meState = context.watch<MeState>();
+    final myId = meState.user?.id;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.counselorName),
@@ -158,7 +159,7 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
               controller: _scrollController,
               itemCount: _messages.length,
               itemBuilder: (context, index) =>
-                  MessageBubble(message: _messages[index]),
+                  MessageBubble(message: _messages[index], currentUserId: myId),
             ),
           ),
           ChatInputBar(
