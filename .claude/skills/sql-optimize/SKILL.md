@@ -1,12 +1,17 @@
 ---
 name: sql-optimize
-description: Part B의 MySQL 쿼리를 개선할 때 사용한다. 문제 진단→개선 쿼리+CREATE INDEX 작성→EXPLAIN before/after 근거→REPORT 섹션 작성까지 절차를 강제한다. B-2-1(일별 통계), B-2-2(N+1) 또는 쿼리 성능/인덱스 작업 시 트리거.
+description: Part B의 MySQL 쿼리 "하나"를 개선하는 시점에 실행한다. 쿼리당 1회. 진단→개선 쿼리+CREATE INDEX→EXPLAIN before/after 실측 근거→REPORT 작성까지 강제한다. B-2-1(일별 통계), B-2-2(N+1) 또는 쿼리 성능/인덱스 작업 시 트리거.
 ---
 
 # sql-optimize
 
 소울유니버스 코딩 테스트 Part B 전용. 쿼리 하나를 **진단→개선→인덱스→근거 기록**까지 처리하는 절차.
 평가 기준상 "왜 이 쿼리/인덱스가 빠른가"의 **설명**이 결과물 못지않게 중요하다.
+
+## 언제 실행하는가 (When)
+- **Part B 쿼리 하나를 개선하는 시점에** 실행한다. **쿼리당 1회.**
+- 검증 산출물은 `flutter-bugfix`의 테스트에 대응하는 **EXPLAIN before/after**다 — 이것이 "성능이 실제로 좋아졌다"의 증거. 로컬 MySQL(설치됨)에 스키마+샘플데이터를 적재해 실측한다.
+- 버그가 아닌 개선이라 unit test는 없으나, 원하면 Part A와 동일한 **브랜치→PR(머지 안 함)** 단위로 나눌 수 있다(권장).
 
 ## 전제 (지킬 것)
 - 작성 위치: `sql/queries_b.sql`의 `[개선된 쿼리]` / `[CREATE INDEX]` 자리에만.
