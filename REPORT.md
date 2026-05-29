@@ -14,6 +14,7 @@
 | 4 | `lib/pages/chats/consultation_room_page.dart` | `_sendMessage`에 보낸 메시지의 로컬 목록 추가(낙관적)+`setState` 추가, `_scrollToBottom`을 post-frame 실행으로 변경 | 전송 시 mock repository로 보내기만 하고 로컬 `_messages`에 추가/갱신하지 않아, 내가 보낸 메시지가 채팅창에 안 보이던 버그. 또한 스크롤이 setState 직후 동기 호출돼 갱신 전 범위로 이동하던 문제를 post-frame으로 고쳐 새 메시지가 실제로 보이게 함. (재현 테스트: `test/consultation_room_send_test.dart`, PR #4 red→green) |
 | 5 | `lib/pages/chats/consultation_room_page.dart` | build에서 `MessageBubble`에 `currentUserId`(=`MeState.user?.id`) 전달 | `MessageBubble`은 `senderId == currentUserId`로 내 메시지 여부를 판단하는데, 채팅방에서 `currentUserId`를 넘기지 않아 `_isMine`이 항상 false → 모든 말풍선이 좌측 회색으로만 표시되던 버그. 현재 사용자 id를 전달해 내 메시지는 우측, 상대 메시지는 좌측으로 구분. (재현 테스트: `test/consultation_room_alignment_test.dart`, PR #5 red→green) |
 | 6 | `lib/pages/chats/consultation_room_page.dart` | `_connectFirestore`의 listen 콜백에 `setState`+`mounted` 가드 추가 | 10초 주기로 도착하는 상담사 실시간 메시지를 `_messages`에 추가만 하고 `setState`를 호출하지 않아, 화면에 반영되지 않던 버그. setState로 감싸 갱신하고, 비동기 콜백이므로 mounted 가드를 추가. (재현 테스트: `test/consultation_room_realtime_test.dart`, PR #6 red→green) |
+| 7 | `lib/pages/home/home_page.dart` | `_HomeBody`의 `context.read<MeState>()` → `context.watch<MeState>()` | `_HomeBody`가 `const` + `context.read`라 MeState 변경(notifyListeners)을 구독/리빌드하지 않아, 닉네임을 바꿔도 홈 인사말·아바타가 갱신되지 않던 버그. watch로 구독해 const 위젯이어도 변경 시 리빌드되게 함(`_CounselorCard`와 일관). *초기 정적 분석에서 누락되어 웹 수동 확인으로 발견 — `docs/04` D-011 참고.* (재현 테스트: `test/home_page_test.dart`, PR #7 red→green) |
 
 ### 기타 의견
 

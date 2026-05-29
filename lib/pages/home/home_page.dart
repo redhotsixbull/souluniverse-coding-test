@@ -89,7 +89,8 @@ class _HomeBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meState = context.read<MeState>();
+    // watch로 구독해야 닉네임 등 MeState 변경 시 const 위젯이어도 리빌드된다.
+    final meState = context.watch<MeState>();
 
     return ListView(
       padding: const EdgeInsets.all(16),
