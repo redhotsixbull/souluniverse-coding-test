@@ -1,14 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:souluniverse_coding_test/app/me_state.dart';
 import 'package:souluniverse_coding_test/pages/chats/consultation_room_page.dart';
 import 'package:souluniverse_coding_test/widgets/message_bubble.dart';
-
-Widget _wrap(Widget child) => ChangeNotifierProvider<MeState>(
-      create: (_) => MeState(),
-      child: MaterialApp(home: child),
-    );
+import 'support/test_providers.dart';
 
 void main() {
   group('ConsultationRoomPage 생명주기', () {
@@ -17,7 +11,7 @@ void main() {
     // 정리되지 않으면 테스트 종료 시 "Timer is still pending"으로 실패한다.
     testWidgets('채팅방을 벗어나면 실시간 스트림 타이머가 정리된다', (tester) async {
       await tester.pumpWidget(
-        _wrap(const ConsultationRoomPage(
+        wrapWithProviders(const ConsultationRoomPage(
           roomId: 'demo-room',
           counselorName: '테스트 상담사',
         )),
@@ -28,7 +22,7 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
 
       // 채팅방을 벗어난다 → 페이지가 dispose 되어야 한다.
-      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+      await tester.pumpWidget(wrapWithProviders(const SizedBox.shrink()));
 
       // 정리됐다면 더 이상 타이머가 동작하지 않는다.
       await tester.pump(const Duration(seconds: 30));
@@ -43,7 +37,7 @@ void main() {
     // 로드가 끝나도 화면을 갱신하지 않으면 로딩바만 계속 돌고 리스트가 비어 있다.
     testWidgets('초기 로드가 끝나면 로딩바가 사라지고 메시지가 표시된다', (tester) async {
       await tester.pumpWidget(
-        _wrap(const ConsultationRoomPage(
+        wrapWithProviders(const ConsultationRoomPage(
           roomId: 'demo-room',
           counselorName: '테스트 상담사',
         )),
@@ -68,8 +62,7 @@ void main() {
       );
 
       // 페이지를 명시적으로 dispose하여 실시간 스트림 구독이 정리되게 한다.
-      // (프레임워크 teardown 순서에 의존하지 않도록 하는 방어적 처리 — 생명주기 테스트와 패턴 일관성)
-      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+      await tester.pumpWidget(wrapWithProviders(const SizedBox.shrink()));
     });
   });
 }

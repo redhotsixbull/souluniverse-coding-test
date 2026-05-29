@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:souluniverse_coding_test/app/me_state.dart';
 import 'package:souluniverse_coding_test/pages/chats/consultation_room_page.dart';
-
-// loadMe를 호출하지 않는 wrap (실시간 표시 검증에는 사용자 로드가 불필요).
-Widget _wrap(Widget child) => ChangeNotifierProvider<MeState>(
-      create: (_) => MeState(),
-      child: MaterialApp(home: child),
-    );
+import 'support/test_providers.dart';
 
 void main() {
   group('ConsultationRoomPage 실시간 메시지', () {
@@ -17,7 +10,7 @@ void main() {
 
     testWidgets('10초 후 도착한 상담사 메시지가 화면에 표시된다', (tester) async {
       await tester.pumpWidget(
-        _wrap(const ConsultationRoomPage(
+        wrapWithProviders(const ConsultationRoomPage(
           roomId: 'demo-room',
           counselorName: '테스트 상담사',
         )),

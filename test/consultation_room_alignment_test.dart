@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:souluniverse_coding_test/app/me_state.dart';
 import 'package:souluniverse_coding_test/pages/chats/consultation_room_page.dart';
 import 'package:souluniverse_coding_test/widgets/message_bubble.dart';
-
-// 내 정보(loadMe → user-demo)가 로드된 상태로 채팅방을 띄운다.
-Widget _wrap(Widget child) => ChangeNotifierProvider<MeState>(
-      create: (_) => MeState()..loadMe(),
-      child: MaterialApp(home: child),
-    );
+import 'support/test_providers.dart';
 
 void main() {
   group('ConsultationRoomPage 말풍선 정렬', () {
     // 시나리오: 내 메시지(user-demo)는 우측, 상담사 메시지(counselor-1)는 좌측에 정렬되어야 한다.
     testWidgets('내 메시지는 우측, 상대 메시지는 좌측에 정렬된다', (tester) async {
       await tester.pumpWidget(
-        _wrap(const ConsultationRoomPage(
-          roomId: 'demo-room',
-          counselorName: '테스트 상담사',
-        )),
+        wrapWithProviders(
+          const ConsultationRoomPage(
+            roomId: 'demo-room',
+            counselorName: '테스트 상담사',
+          ),
+          loadMe: true, // 내 정보(user-demo) 로드 상태로
+        ),
       );
       // 초기 메시지 로드(600ms) + 내 정보 로드(1500ms) + 최하단 스크롤 대기
       await tester.pump(const Duration(milliseconds: 700));
@@ -44,7 +40,6 @@ void main() {
           reason: '상대 메시지는 좌측 정렬되어야 한다');
 
       // 페이지 명시적 dispose (실시간 스트림 구독 정리).
-      // MeState/loadMe를 다시 만들지 않도록 빈 위젯으로 교체한다.
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
