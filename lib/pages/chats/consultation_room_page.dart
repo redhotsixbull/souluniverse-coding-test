@@ -43,14 +43,16 @@ class _ConsultationRoomPageState extends State<ConsultationRoomPage> {
   }
 
   Future<void> _loadInitialMessages() async {
-    _isLoadingMore = true;
+    setState(() => _isLoadingMore = true);
 
     final msgs =
         await ChatsRepository.instance.fetchMessages(widget.roomId, page: 0);
 
-    _messages = msgs;
-
-    _isLoadingMore = false;
+    if (!mounted) return;
+    setState(() {
+      _messages = msgs;
+      _isLoadingMore = false;
+    });
     _scrollToBottom();
   }
 

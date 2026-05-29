@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:souluniverse_coding_test/app/me_state.dart';
 import 'package:souluniverse_coding_test/pages/chats/consultation_room_page.dart';
+import 'package:souluniverse_coding_test/widgets/message_bubble.dart';
 
 Widget _wrap(Widget child) => ChangeNotifierProvider<MeState>(
       create: (_) => MeState(),
@@ -34,6 +35,41 @@ void main() {
 
       // 여기까지 왔을 때 pending 타이머가 남아 있으면 프레임워크가 실패시킨다.
       expect(find.byType(ConsultationRoomPage), findsNothing);
+    });
+  });
+
+  group('ConsultationRoomPage 초기 메시지 로드', () {
+    // 시나리오: 채팅방에 들어가면 잠깐 로딩 후 기본 메시지 목록이 보여야 한다.
+    // 로드가 끝나도 화면을 갱신하지 않으면 로딩바만 계속 돌고 리스트가 비어 있다.
+    testWidgets('초기 로드가 끝나면 로딩바가 사라지고 메시지가 표시된다', (tester) async {
+      await tester.pumpWidget(
+        _wrap(const ConsultationRoomPage(
+          roomId: 'demo-room',
+          counselorName: '테스트 상담사',
+        )),
+      );
+
+      // 진입 직후에는 로딩 중 표시가 보인다.
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+      // 초기 메시지 로드(600ms 지연) 완료까지 대기.
+      await tester.pump(const Duration(milliseconds: 700));
+
+      // 로드가 끝났으면 로딩바는 사라지고, 메시지 말풍선이 화면에 그려져야 한다.
+      expect(
+        find.byType(LinearProgressIndicator),
+        findsNothing,
+        reason: '로드 완료 후에는 로딩바가 사라져야 한다',
+      );
+      expect(
+        find.byType(MessageBubble),
+        findsWidgets,
+        reason: '초기 메시지 말풍선이 화면에 표시되어야 한다',
+      );
+
+      // 페이지를 명시적으로 dispose하여 실시간 스트림 구독이 정리되게 한다.
+      // (프레임워크 teardown 순서에 의존하지 않도록 하는 방어적 처리 — 생명주기 테스트와 패턴 일관성)
+      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
     });
   });
 }
