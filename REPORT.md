@@ -8,7 +8,7 @@
 
 | # | 파일 경로 | 수정 내용 | 원인 분석 |
 |---|-----------|-----------|-----------|
-| 1 | | | |
+| 1 | `lib/app/me_state.dart` | `removeFavoriteCounselor`의 필터 조건을 `id == counselorId` → `id != counselorId` | 삭제인데 "대상만 남기는" 조건이라, 하트 해제 시 해제 대상은 남고 나머지 즐겨찾기가 모두 사라짐. 삭제 의미에 맞게 부정 조건으로 정정. (재현 테스트: `test/me_state_test.dart`, PR #1 red→green) |
 | 2 | | | |
 | 3 | | | |
 | 4 | | | |
