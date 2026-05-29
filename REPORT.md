@@ -54,15 +54,39 @@
 
 ### B-2-1. 일별 상담 완료 통계
 
-**문제점:**
+**문제점**
+- WHERE에서 `DATE_FORMAT(created_at, …)`로 **컬럼을 함수로 감싸** non-SARGable → `created_at`에 인덱스가 있어도 못 타고 **전수 스캔**. (현재 인덱스는 PK뿐이라 받쳐줄 인덱스도 없음)
+- 매 행 `DATE_FORMAT` 호출 + 문자열 비교 비용.
 
-**개선된 쿼리:**
+**개선된 쿼리** (`sql/queries_b.sql` 참조)
 
 ```sql
--- 여기에 작성해주세요
+SELECT
+  DATE_FORMAT(created_at, '%Y-%m-%d') AS consult_date,
+  COUNT(*)                            AS consult_count,
+  AVG(total_billed_cookies)           AS avg_cookies
+FROM chat_rooms
+WHERE status = 'ended'
+  AND created_at >= CURDATE() - INTERVAL 30 DAY   -- 컬럼 가공 제거 → SARGable
+GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')        -- 출력 형식 유지(성능 영향 없음)
+ORDER BY consult_date;
+
+CREATE INDEX idx_chat_rooms_status_created ON chat_rooms (status, created_at);
 ```
 
-**개선 이유:**
+**개선 이유 (로컬 실측: chat_rooms 20만 행, ended 10만, 최근 30일 ended 8,493)**
+
+| 구성 | 접근 경로 | 인덱스로 읽는 행 | 대략 실측 |
+|---|---|---|---|
+| 원본(`DATE_FORMAT`, 인덱스 X) | 풀스캔 | 200,000 | ~87ms |
+| 쿼리 재작성만 (인덱스 무시) | **여전히 풀스캔** | 200,000 | ~65ms |
+| 재작성 + `created_at` 단독 인덱스 | 인덱스 레인지 | 16,987 | ~19ms |
+| **재작성 + `(status, created_at)` 복합** | 인덱스 레인지 | **8,493** | ~9ms |
+
+- **재작성 자체는 큰 개선이 아니다(87→65ms).** 접근 경로가 풀스캔 그대로이기 때문. 재작성의 진짜 역할은 *컬럼 가공을 없애 인덱스가 동작하게 만드는 전제조건(SARGable화)*이다. → **재작성과 인덱스는 한 쌍.**
+- **필터 영향도는 `created_at`이 지배적.** `status`는 4개 enum 중 'ended'≈50%라 거의 못 좁히지만, `created_at` 30일 범위는 ~8.5%로 훨씬 선택적 → 전수 스캔 제거(200,000→16,987)의 본체는 `created_at`이다.
+- **그럼에도 인덱스 컬럼 순서는 `(status, created_at)`** 가 정답이다. 선택도와 별개로, B-tree는 *범위 컬럼 이후로 추가 탐색을 못 하므로* **등치(status)를 선두, 범위(created_at)를 후행**에 둔다. 이 덕에 'ended'만 먼저 좁혀 16,987→8,493으로 한 번 더 절반(추가 ~2배). `created_at` 단독으로도 큰 개선이지만 복합이 최적.
+- (한 단계 더) 지난 날짜의 일별 통계는 불변이므로, 대시보드 호출이 잦아지면 **일별 집계 요약 테이블(사전집계)** 이 정공법. 다만 이는 과제의 "쿼리+인덱스" 범위를 넘는 아키텍처 변경이라 *언급만* 한다.
 
 ---
 

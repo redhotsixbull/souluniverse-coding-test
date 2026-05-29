@@ -68,9 +68,23 @@ GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
 ORDER BY consult_date;
 
 -- [개선된 쿼리] 여기에 작성하세요
-
+-- 핵심: WHERE에서 created_at을 함수(DATE_FORMAT)로 감싸지 않고 "범위 조건"으로 비교(SARGable)
+--       → 아래 인덱스를 탈 수 있게 됨. SELECT/GROUP BY의 날짜 포맷은 출력용이라 그대로 둔다(성능 영향 없음).
+SELECT
+  DATE_FORMAT(created_at, '%Y-%m-%d') AS consult_date,
+  COUNT(*)                            AS consult_count,
+  AVG(total_billed_cookies)           AS avg_cookies
+FROM chat_rooms
+WHERE status = 'ended'
+  AND created_at >= CURDATE() - INTERVAL 30 DAY
+GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+ORDER BY consult_date;
 
 -- [CREATE INDEX] 여기에 작성하세요
+-- 등치 컬럼(status)을 선두, 범위 컬럼(created_at)을 후행에 둔 복합 인덱스.
+-- status='ended'로 먼저 좁힌 뒤 created_at 범위를 인덱스 레인지 스캔한다.
+-- (B-tree는 범위 컬럼 이후로는 추가 탐색을 못 하므로 "등치 먼저, 범위 나중" 순서가 정답.)
+CREATE INDEX idx_chat_rooms_status_created ON chat_rooms (status, created_at);
 
 
 
